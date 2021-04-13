@@ -180,7 +180,8 @@ vec3 trace(Ray ray) {
                 if (cosDelta > 0) outRadiance += ray.weight * LeIn * ks[hit.mat] * pow(cosDelta, shininess);
             }
             ray.weight *= ka;
-            break;
+            outRadiance += ray.weight;
+            return outRadiance;
         }
 
         ray.weight *= F0 + (vec3(1,1,1) - F0) * pow(dot(-ray.dir, hit.normal), 5);
