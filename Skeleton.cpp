@@ -31,6 +31,8 @@
 // Tudomasul veszem, hogy a forrasmegjeloles kotelmenek megsertese eseten a hazifeladatra adhato pontokat
 // negativ elojellel szamoljak el es ezzel parhuzamosan eljaras is indul velem szemben.
 //=============================================================================================
+#include <fstream>
+#include <sstream>
 #include "framework.h"
 
 // vertex shader in GLSL
@@ -204,46 +206,7 @@ void main() {
 }
 )";
 
-////---------------------------
-//struct Material {
-////---------------------------
-//	vec3 ka, kd, ks;
-//	float  shininess;
-//	vec3 F0;
-//	int rough, reflective;
-//};
-//
-////---------------------------
-//struct RoughMaterial : Material {
-////---------------------------
-//	RoughMaterial(vec3 _kd, vec3 _ks, float _shininess) {
-//		ka = _kd * M_PI;
-//		kd = _kd;
-//		ks = _ks;
-//		shininess = _shininess;
-//		rough = true;
-//		reflective = false;
-//	}
-//};
-//
-////---------------------------
-//struct SmoothMaterial : Material {
-////---------------------------
-//	SmoothMaterial(vec3 _F0) {
-//		F0 = _F0;
-//		rough = false;
-//		reflective = true;
-//	}
-//};
-//
-////---------------------------
-//struct Sphere {
-////---------------------------
-//	vec3 center;
-//	float radius;
-//
-//	Sphere(const vec3& _center, float _radius) { center = _center; radius = _radius; }
-//};
+
 
 //---------------------------
 struct Camera {
@@ -269,20 +232,11 @@ struct Camera {
 	}
 };
 
-GPUProgram shader;
+
 Camera camera;
 bool animate = true;
 
-////---------------------------
-//struct Light {
-////---------------------------
-//	vec3 direction;
-//	vec3 Le, La;
-//	Light(vec3 _direction, vec3 _Le, vec3 _La) {
-//		direction = normalize(_direction);
-//		Le = _Le; La = _La;
-//	}
-//};
+
 
 float F(float n, float k) {
     return ((n-1)*(n-1) + k*k) / ((n+1)*(n+1)+k*k);
@@ -299,19 +253,54 @@ void onInitialization() {
 	 glEnableVertexAttribArray(0);
 	 glVertexAttribPointer(0,2,GL_FLOAT,GL_FALSE,0,NULL);
 
-	 shader.create(vertexSource,fragmentSource,"fragmentColor");
-	 shader.setUniform(1, "top");
+//	 shader.create(vertexSource,fragmentSource,"fragmentColor");
+//	 shader.setUniform(1, "top");
+//
+//	 const float g = 0.618f, G = 1.618f;
+//	 std::vector<vec3> v = {
+//	    vec3(0, g, G), vec3(0, -g, G), vec3(0, -g, -G), vec3(0, g, -G), vec3(G, 0, g), vec3(-G, 0, g), vec3(-G, 0, -g), vec3(G, 0, -g),
+//	    vec3(g,G,0), vec3(-g,G,0), vec3(-g,-G,0), vec3(g,-G,0), vec3(1,1,1), vec3(-1,1,1), vec3(-1,-1,1), vec3(1,-1,1),
+//	    vec3(1,-1,-1), vec3(1,1,-1), vec3(-1,1,-1), vec3(-1,-1,-1)
+//	 };
+//    for (int i = 0; i < v.size(); i++) shader.setUniform(v[i], "v[" + std::to_string(i) + "]");
+//
+//    std::vector<int> planes = {
+//        1,2,16, 1,13,9, 1,14,6, 2,15,11, 3,4,18, 3,17,12, 3,20,7, 19,10,9, 16,12,17, 5,8,18, 14,10,19, 6,7,20
+//    };
+//    for (int i = 0; i < planes.size(); i++) shader.setUniform(planes[i], "planes[" + std::to_string(i) + "]");
+//
+//    shader.setUniform(vec3(0.1f,0.2f,0.3f), "kd[0]");
+//    shader.setUniform(vec3(1.5f, 0.6f, 0.4f), "kd[1]");
+//    shader.setUniform(vec3(5,5,5), "ks[0]");
+//    shader.setUniform(vec3(1,1,1), "ks[1]");
+//    shader.setUniform(vec3(F(0.17,3.1), F(0.35,2.7), F(1.5,1.9)), "F0");
 
-	 const float g = 0.618f, G = 1.618f;
-	 std::vector<vec3> v = {
-	    vec3(0, g, G), vec3(0, -g, G), vec3(0, -g, -G), vec3(0, g, -G), vec3(G, 0, g), vec3(-G, 0, g), vec3(-G, 0, -g), vec3(G, 0, -g),
-	    vec3(g,G,0), vec3(-g,G,0), vec3(-g,-G,0), vec3(g,-G,0), vec3(1,1,1), vec3(-1,1,1), vec3(-1,-1,1), vec3(1,-1,1),
-	    vec3(1,-1,-1), vec3(1,1,-1), vec3(-1,1,-1), vec3(-1,-1,-1)
-	 };
+}
+
+// Window has become invalid: Redraw
+void onDisplay() {
+    glViewport(0, 0, windowWidth, windowHeight);
+    std::ifstream vertexStream("vertex.glsl");
+    std::ifstream fragmentStream("fragman.glsl");
+    std::stringstream vertex;
+    std::stringstream fragment;
+    vertex << vertexStream.rdbuf();
+    fragment << fragmentStream.rdbuf();
+    GPUProgram shader(false);
+
+    shader.create(vertex.str().c_str(),fragment.str().c_str(),"fragmentColor");
+    //shader.setUniform(1, "top");
+     shader.Use();
+    const float g = 0.618f, G = 1.618f;
+    std::vector<vec3> v = {
+            vec3(0, g, G), vec3(0, -g, G), vec3(0, -g, -G), vec3(0, g, -G), vec3(G, 0, g), vec3(-G, 0, g), vec3(-G, 0, -g), vec3(G, 0, -g),
+            vec3(g,G,0), vec3(-g,G,0), vec3(-g,-G,0), vec3(g,-G,0), vec3(1,1,1), vec3(-1,1,1), vec3(-1,-1,1), vec3(1,-1,1),
+            vec3(1,-1,-1), vec3(1,1,-1), vec3(-1,1,-1), vec3(-1,-1,-1)
+    };
     for (int i = 0; i < v.size(); i++) shader.setUniform(v[i], "v[" + std::to_string(i) + "]");
 
     std::vector<int> planes = {
-        1,2,16, 1,13,9, 1,14,6, 2,15,11, 3,4,18, 3,17,12, 3,20,7, 19,10,9, 16,12,17, 5,8,18, 14,10,19, 6,7,20
+            1,2,16, 1,13,9, 1,14,6, 2,15,11, 3,4,18, 3,17,12, 3,20,7, 19,10,9, 16,12,17, 5,8,18, 14,10,19, 6,7,20
     };
     for (int i = 0; i < planes.size(); i++) shader.setUniform(planes[i], "planes[" + std::to_string(i) + "]");
 
@@ -321,11 +310,7 @@ void onInitialization() {
     shader.setUniform(vec3(1,1,1), "ks[1]");
     shader.setUniform(vec3(F(0.17,3.1), F(0.35,2.7), F(1.5,1.9)), "F0");
 
-}
-
-// Window has become invalid: Redraw
-void onDisplay() {
-   glClearColor(0,0,0,0);
+    glClearColor(0,0,0,0);
    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
    shader.setUniform(camera.eye, "wEye");
    shader.setUniform(camera.lookat, "wLookAt");
@@ -337,8 +322,8 @@ void onDisplay() {
 
 // Key of ASCII code pressed
 void onKeyboard(unsigned char key, int pX, int pY) {
-    if (key == 't') shader.setUniform(1,"top");
-    if (key == 'T') shader.setUniform(0,"top");
+    //if (key == 't') shader.setUniform(1,"top");
+    //if (key == 'T') shader.setUniform(0,"top");
     if (key == 'f') camera.Step(0.1f);
     if (key == 'F') camera.Step(-0.1f);
     if (key == 'a') animate = !animate;
