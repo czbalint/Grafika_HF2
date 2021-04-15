@@ -344,6 +344,6 @@ void onMouseMotion(int pX, int pY) {
 
 // Idle event indicating that some time elapsed: do animation here
 void onIdle() {
-	if (animate) camera.Animate(glutGet(GLUT_ELAPSED_TIME) / 1000.0f);
+	if (animate) camera.Animate(glutGet(GLUT_ELAPSED_TIME) / 2000.0f);
 	glutPostRedisplay();
 }

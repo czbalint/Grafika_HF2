@@ -2,8 +2,8 @@
 precision highp float;
 
 const vec3 La = vec3(0.5f, 0.6f, 0.6f);
-const vec3 Le = vec3(2.5f, 2.5f, 1.8f);
-const vec3 lightPosition = vec3(0.2f, 0.2f, 0.2f);
+const vec3 Le = vec3(1.5f, 1.5f, 0.8f);
+const vec3 lightPosition = vec3(0.2f, 0.1f, 0.2f);
 const vec3 ka = vec3(0.5f, 0.5f, 0.5f);
 const float shininess = 100.0f;
 const int maxdepth = 5;
@@ -55,6 +55,7 @@ Hit intersectConvexPolyhedron(Ray ray, Hit hit, float scale, int mat){
             }
         }
         if (!outside){
+            bool portal = true;
             for(int j = 0; j < objFaces; j++){
                 if (i == j) continue;
                 vec3 p11, n;
@@ -64,18 +65,22 @@ Hit intersectConvexPolyhedron(Ray ray, Hit hit, float scale, int mat){
                 hit.normal = normalize(normal);
                 if (abs(dot(n, pintersect - p11)) < 0.1f) {
                     hit.mat = mat;
-                } //else hit.mat = 3;
-
+                    portal = false;
+                    break;
+                }
+            }
+            if (portal){
+                hit.mat = 3;
             }
         }
     }
     return hit;
 }
 
-Hit intersactSpahre(Ray ray, Hit besthit){
+Hit intersactSpahre(Ray ray, Hit besthit, vec3 cen){
     Sphare object;
     object.radius = 0.3f;
-    object.center = vec3(0,0,0);
+    object.center = cen;
     Hit hit;
     hit.t = -1;
     vec3 dist = ray.start - object.center;
@@ -91,6 +96,63 @@ Hit intersactSpahre(Ray ray, Hit besthit){
     hit.t = (t2 > 0) ? t2 : t1;
     hit.position = ray.start + ray.dir * hit.t;
     hit.normal = (hit.position - object.center) / object.radius;
+    hit.mat = 2;
+    if (hit.t < besthit.t || besthit.t < 0){
+        return hit;
+    }
+    return besthit;
+
+}
+
+Hit intersectImplicit(Ray ray, Hit besthit){
+    float a = 1.1f;
+    float b = 8.4f;
+    float c = 1.5f;
+    Hit hit;
+    hit.t = -1;
+    ray.dir = normalize(ray.dir);
+    float A, B, C;
+
+//    A = (a * (ray.dir.x * ray.dir.x)) + (b * (ray.dir.y * ray.dir.y));
+//    B = 2 * a * ray.start.x * ray.dir.x + 2 * b * ray.start.y * ray.dir.y - c * ray.dir.z;
+//    C = a * (ray.start.x * ray.start.x) + b * (ray.start.y * ray.start.y) - c * ray.dir.z;
+
+    A = a * ray.dir.x * ray.dir.x + b * ray.dir.y * ray.dir.y;
+    B = 2 * a * ray.start.x * ray.dir.x + 2 * b * ray.start.y * ray.dir.y - c * ray.dir.z;
+    C = a * ray.start.x * ray.start.x + b * ray.start.y * ray.start.y - c * ray.start.z;
+
+    float disc = (B*B) - (4 * A * C);
+    if (disc < 0) return besthit;
+    float t1 = (-B + sqrt(disc)) / (2 * A);
+    float t2 = (-B - sqrt(disc)) / (2 * A);
+
+    vec3 pos1 = ray.start + ray.dir * t1;
+    if (t2 > 0) {
+        vec3 pos2 = ray.start + ray.dir * t2;
+        if (length(pos2) < 0.3f)
+        if (length(pos1) < 0.3f)
+        hit.t = (t2 < t1) ? t2 : t1;
+        else
+        hit.t = t2;
+        else if (length(pos1) < 0.3)
+        hit.t = t1;
+        else
+        return besthit;
+    } else if (length(pos1) < 0.3f)
+    hit.t = t1;
+    else
+    return besthit;
+
+    hit.position = ray.start + ray.dir * hit.t;
+
+//    if (t1 <= 0) return besthit;
+//    hit.t = (t2 > 0) ? t2 : t1;
+//    hit.position = dis + ray.dir * hit.t;
+    //if (distance(vec3(0,0,0), hit.position) > 0.3f) return besthit;
+    vec3 F = vec3(1,0,(2 * a * hit.position.x) / c );
+    vec3 G = vec3(0,1,(2 * b * hit.position.y) / c );
+    //hit.normal = -normalize(cross(F,G));
+    hit.normal = normalize(vec3(-2.0f * a * hit.position.x / c, -2.0f * b * hit.position.y / c, 1.0f));
     hit.mat = 2;
     if (hit.t < besthit.t || besthit.t < 0){
         return hit;
@@ -138,14 +200,20 @@ Hit firstIntersect(Ray ray) {
     bestHit.t = -1;
     //bestHit = intersectMirascope(ray, bestHit);
     //bestHit = intersectConvexPolyhedron(ray, bestHit, 0.02f, 0);
-    bestHit = intersectConvexPolyhedron(ray, bestHit, 1.75f, 1);
-    bestHit = intersactSpahre(ray, bestHit);
+    bestHit = intersectImplicit(ray, bestHit);
+    //bestHit = intersactSpahre(ray, bestHit, vec3(0,0,0));
+    //bestHit = intersactSpahre(ray, bestHit, vec3(0.7,0.7,0.7));
+    //abestHit = intersactSpahre(ray, bestHit, vec3(-0.7,-0.7,-0.7));
+    bestHit = intersectConvexPolyhedron(ray, bestHit, 1f, 1);
+
     if (dot(ray.dir, bestHit.normal) > 0) bestHit.normal = bestHit.normal * (-1);
     return bestHit;
 }
 
 vec3 trace(Ray ray) {
     vec3 outRadiance = vec3(0, 0, 0);
+    int  portalCount = 0;
+
     for(int d = 0; d < maxdepth; d++) {
         Hit hit = firstIntersect(ray);
         //if (hit.t < 0) break;
@@ -164,18 +232,29 @@ vec3 trace(Ray ray) {
             return outRadiance;
         }
         if (hit.mat == 2){
-            ray.weight *= F0 + (vec3(1, 1, 1) - F0) * pow(1-dot(-ray.dir, hit.normal), 5);
+            ray.weight *= F0 + (vec3(1, 1, 1) - F0) * pow(1 - dot(-ray.dir, hit.normal), 5);
             ray.start = hit.position + hit.normal * epsilon;
             ray.dir = reflect(ray.dir, hit.normal);
+
         }
 
         if (hit.mat == 3){
-            ray.start = ray.start + ray.dir * hit.t;
-            ray.dir = reflect(ray.dir, hit.normal);
-
+            if (portalCount < maxdepth){
+                float alfa = 72.0f * 3.14 / 180;
+                ray.start = hit.position + hit.normal * epsilon;
+                ray.dir = reflect(ray.dir, hit.normal);
+                vec3 tmp = ray.start + ray.dir;
+                ray.start = ray.start * cos(alfa) + cross(hit.normal, ray.start) * sin(alfa) + hit.normal * dot(hit.normal, ray.start) * (1 - cos(alfa));
+                tmp = tmp * cos(alfa) + cross(hit.normal, tmp) * sin(alfa) + hit.normal * dot(hit.normal, tmp) * (1 - cos(alfa));
+                ray.dir = normalize(tmp - ray.start);
+                portalCount++;
+            } else {
+                break;
+            }
+            d--;
+            continue;
         }
     }
-
     outRadiance += ray.weight * La;
     return outRadiance;
 }
